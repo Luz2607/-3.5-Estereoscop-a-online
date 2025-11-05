@@ -2,11 +2,15 @@
 <html lang="es">
 <head>
   <meta charset="utf-8" />
-  <title>Visor Estereoscópico SBS + WebXR (Cardboard)</title>
+  <title>Visor SBS</title>
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <link rel="stylesheet" href="css/styles.css" />
 
-  <!-- Three.js (ESM) + Addons via importmap -->
+  <!-- Bootstrap 5 + Icons (solo estilo, no JS) -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"/>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet"/>
+
+  <link rel="stylesheet" href="css/styles.css">
+
   <script type="importmap">
   {
     "imports": {
@@ -18,88 +22,131 @@
 </head>
 <body>
 
-  <header class="app-header">
-    <h1>Visor Estereoscópico SBS + WebXR</h1>
-    <p class="subtitle">Objetivo: Visualizar imágenes estereoscópicas cargadas desde tu computadora. Duplicar imagen normal a SBS o separar una imagen SBS en ojos izquierdo y derecho, con ajuste fino y soporte VR.</p>
-  </header>
+  <div id="rotateHint">
+    <div>
+      <p class="m-0">
+        <i class="bi bi-phone-landscape me-2"></i>
+        Gira tu teléfono a <strong>horizontal</strong> para VR.
+      </p>
+    </div>
+  </div>
 
-  <main class="layout">
-    <!-- Lienzo 3D -->
-    <div id="viewer" class="viewer"></div>
+  <div id="app">
+    <!-- Panel (minimal) -->
+    <div id="ui" class="card shadow glass border-0">
+      <div class="card-body py-3">
+        <h1 class="h6 mb-1">Visor Estereoscópico</h1>
+        <p class="text-secondary small mb-3">Carga una imagen (SBS o dos L/R), ajusta zoom/offset/volteo y entra a VR.</p>
 
-    <!-- Panel de Control -->
-    <aside class="controls" id="controls">
-      <div class="controls-header">
-        <h2>Controles</h2>
+        <div class="row gy-2 mb-3">
+          <div class="col-12">
+            <strong class="small text-uppercase text-secondary">Fuente de imagen</strong><br>
+            <div class="btn-group mt-1" role="group" aria-label="modo">
+              <button id="btnSBS" class="btn btn-sm btn-primary">Usar 1 imagen SBS</button>
+              <button id="btnTwo" class="btn btn-sm btn-outline-light">Usar 2 imágenes (L/R)</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="sbsInputs" class="row g-2 mb-3">
+          <div class="col-12 col-sm"><input id="fileSBS" type="file" accept="image/*" class="form-control form-control-sm"></div>
+          <div class="col-auto"><button id="btnDemoSBS" class="btn btn-sm btn-outline-info">Demo SBS</button></div>
+          <div class="col-12"><div class="form-text">Una sola imagen con las dos mitades (izq/der).</div></div>
+        </div>
+
+        <div id="twoInputs" class="mb-3" hidden>
+          <label class="form-label mb-1 small text-secondary">Ojo Izquierdo</label>
+          <input id="fileL" type="file" accept="image/*" class="form-control form-control-sm mb-2">
+          <label class="form-label mb-1 small text-secondary">Ojo Derecho</label>
+          <input id="fileR" type="file" accept="image/*" class="form-control form-control-sm mb-2">
+          <button id="btnDemoTwo" class="btn btn-sm btn-outline-info">Demo L/R</button>
+          <div class="form-text mt-1">Dos imágenes independientes (una por ojo).</div>
+        </div>
+
+        <hr class="border-secondary-subtle">
+
+        <div class="mb-3">
+          <label class="form-label">Zoom (<span id="zoomVal" class="text-info">1.90</span>x)</label>
+          <input id="zoom" type="range" min="0.5" max="3" step="0.01" value="1.90" class="form-range">
+        </div>
+
+        <div class="row g-3 mb-3">
+          <div class="col-sm-6">
+            <label class="form-label">Offset X <span id="offXVal" class="badge bg-info-subtle text-info ms-1">0</span> px</label>
+            <input id="offX" type="range" min="-200" max="200" step="1" value="0" class="form-range">
+          </div>
+          <div class="col-sm-6">
+            <label class="form-label">Offset Y <span id="offYVal" class="badge bg-info-subtle text-info ms-1">0</span> px</label>
+            <input id="offY" type="range" min="-200" max="200" step="1" value="0" class="form-range">
+          </div>
+        </div>
+
+        <div class="mb-2">
+          <div class="form-check form-check-inline">
+            <input id="flipH" class="form-check-input" type="checkbox">
+            <label class="form-check-label" for="flipH">Horizontal</label>
+          </div>
+          <div class="form-check form-check-inline">
+            <input id="flipV" class="form-check-input" type="checkbox">
+            <label class="form-check-label" for="flipV">Vertical</label>
+          </div>
+        </div>
+
+        <div class="mb-3">
+          <div class="form-check">
+            <input id="swapEyes" class="form-check-input" type="checkbox">
+            <label class="form-check-label" for="swapEyes">Intercambiar L/R</label>
+          </div>
+        </div>
+
+        <div class="mb-3 d-flex align-items-center gap-2 flex-wrap">
+          <div class="form-check m-0">
+            <input id="autoFit" class="form-check-input" type="checkbox" checked>
+            <label class="form-check-label" for="autoFit">Auto-ajustar (alto)</label>
+          </div>
+          
+        </div>
+
+        <div class="mb-2 d-flex gap-2 flex-wrap">
+          <button id="btnFullscreen" class="btn btn-sm btn-outline-light">Pantalla completa</button>
+          <button id="btnHideUI" class="btn btn-sm btn-secondary">Ocultar</button>
+        </div>
+
+        <hr class="border-secondary-subtle">
+
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+          <button id="btnEnterVR" class="btn btn-success">Entrar en VR (WebXR)</button>
+          <button id="btnExitVR" class="btn btn-outline-danger" hidden>Salir de VR</button>
+          <div class="small text-secondary">Requiere HTTPS y Chrome Android.</div>
+        </div>
+
+        <div class="mt-3 small text-secondary">
+          © <span id="yearNow"></span> 21200647 Luz María Cruz García
+        </div>
       </div>
+    </div>
 
-      <div class="group">
-        <label class="label">Fuente de imagen</label>
-        <div class="radio-row">
-          <label><input type="radio" name="mode" value="mono" checked> Imagen única (duplicar a SBS)</label>
-          <label><input type="radio" name="mode" value="sbs"> Imagen ya en SBS (mitad izquierda/derecha)</label>
-        </div>
-        <div class="file-row">
-          <input type="file" id="fileInput" accept="image/*" />
-          <button id="btnClear" class="btn secondary">Limpiar</button>
-        </div>
-        <small class="hint">Sugerencia: usa imágenes grandes. Para SBS, la imagen debe contener dos mitades (izquierda/derecha) en el mismo archivo.</small>
-      </div>
+    <!-- Botón flotante SIEMPRE visible para mostrar el menú (mismo id) -->
+    <button id="btnShowUI" class="float btn btn-primary rounded-circle" title="Mostrar controles">
+      <i class="bi bi-sliders"></i>
+    </button>
 
-      <div class="group">
-        <label class="label">Ajustes geométricos</label>
-        <div class="slider">
-          <label for="zoom">Zoom / Tamaño del plano</label>
-          <input type="range" id="zoom" min="0.2" max="3" step="0.01" value="1" />
-        </div>
-        <div class="slider">
-          <label for="gap">Separación horizontal (entre imágenes)</label>
-          <input type="range" id="gap" min="0" max="1.2" step="0.01" value="0.25" />
-        </div>
-        <div class="slider">
-          <label for="yBoth">Desplazamiento vertical (ambos ojos)</label>
-          <input type="range" id="yBoth" min="-0.6" max="0.6" step="0.005" value="0" />
-        </div>
-        <div class="slider">
-          <label for="yDiff">Alineación vertical diferencial (izq↑ / der↓)</label>
-          <input type="range" id="yDiff" min="-0.4" max="0.4" step="0.005" value="0" />
-        </div>
-      </div>
+    <!-- Visor 2D -->
+    <div id="viewer">
+      <div id="left" class="eye"></div>
+      <div id="right" class="eye"></div>
+    </div>
 
-      <div class="group">
-        <label class="label">Correcciones de imagen</label>
-        <div class="toggle-row">
-          <label><input type="checkbox" id="swapEyes"> Intercambiar ojos (swap L/R)</label>
-          <label><input type="checkbox" id="flipVertical"> Voltear vertical (imagen de cabeza)</label>
-        </div>
-      </div>
+    <!-- Canvas WebXR -->
+    <canvas id="xrCanvas"></canvas>
 
-      <div class="group">
-        <label class="label">Realidad Virtual</label>
-        <div class="vr-row">
-          <!-- VRButton se inyecta aquí automáticamente por three -->
-          <span id="vrMount"></span>
-          <button id="btnExitVR" class="btn danger" hidden>Salir de VR</button>
-        </div>
-        <small class="hint">En móviles, gira el teléfono a horizontal. Usa un visor tipo Cardboard. El botón “Entrar en VR” aparecerá si tu navegador soporta WebXR.</small>
-      </div>
+    <!-- HUD móvil (DOM Overlay) -->
+    <div id="xrHud" class="xrHud" hidden>
+      <button id="xrExitMobile" class="xrExit btn btn-light">Salir de VR</button>
+    </div>
+  </div>
 
-      <div class="group">
-        <label class="label">Estado</label>
-        <div id="status" class="status">Sin imagen cargada.</div>
-      </div>
-
-      <div class="credits">
-        <h3>Créditos</h3>
-        <p>© 2025 — Proyecto académico de visualización estereoscópica. Desarrollado por <strong>Tu Nombre</strong>.</p>
-      </div>
-    </aside>
-  </main>
-
-  <footer class="app-footer">
-    <p>Hecho con <a href="https://threejs.org/" target="_blank" rel="noopener">Three.js</a> y <span class="mono">WebXR</span>. Modo oscuro, UI minimalista.</p>
-  </footer>
-
+  <!-- (sin JS de Bootstrap para respetar tu condición) -->
   <script type="module" src="js/app.js"></script>
 </body>
 </html>

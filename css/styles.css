@@ -1,108 +1,196 @@
+/* ===== Tema “Noir Neon” (oscuro minimalista con acentos cian-magenta) ===== */
 :root{
-  --bg:#0b0d10;
-  --panel:#10141a;
-  --muted:#7e8a9a;
-  --text:#eaf0f6;
-  --accent:#78c0ff;
-  --accent-2:#ffb86b;
-  --danger:#ff6b6b;
-  --ring: 0 0 0 2px rgba(120,192,255,.35);
+  --bg:#0b0f14;
+  --fg:#e8edf3;
+  --muted:#a5b4c5;
+
+  --glass: rgba(15,18,26,.62);
+  --stroke: rgba(255,255,255,.10);
+  --ring: #45e0ff;
+
+  --accent:#45e0ff;           /* cian */
+  --accent-2:#ff6ad5;         /* magenta sutil */
+  --shadow: 0 12px 40px rgba(0,0,0,.35);
 }
 
-*{ box-sizing:border-box; }
-html,body{ height:100%; }
+*{box-sizing:border-box}
+html,body{height:100%}
 body{
-  margin:0; background:var(--bg); color:var(--text);
-  font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, Arial, "Noto Sans";
+  margin:0; background:var(--bg); color:var(--fg);
+  font-family: system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+  -webkit-user-select:none; user-select:none;
 }
+#app{height:100dvh;width:100vw;overflow:hidden;position:relative}
 
-.app-header{
-  padding:16px 20px; border-bottom:1px solid #151a21; background:linear-gradient(180deg, #0e1217 0%, #0b0d10 100%);
+/* === Aviso orientación como BANDA superior (no bloquea interacción) === */
+#rotateHint{
+  position:fixed; left:0; right:0; top:0; display:none;
+  z-index:1000; padding:10px 14px;
+  background:
+    linear-gradient(90deg, rgba(10,14,20,.85) 0%, rgba(10,14,20,.55) 60%, rgba(10,14,20,.85) 100%),
+    radial-gradient(1200px 40px at 50% 0, rgba(69,224,255,.25), transparent 70%);
+  color:#fff; border-bottom:1px solid var(--stroke);
+  pointer-events:none;
 }
-.app-header h1{ margin:0 0 6px; font-size:20px; letter-spacing:.3px; }
-.subtitle{ margin:0; color:var(--muted); max-width:920px; }
+#rotateHint p{margin:0; font-size:14px; letter-spacing:.2px}
+@media (orientation: portrait){ #rotateHint{display:block} }
+@media (orientation: landscape){ #rotateHint{display:none !important} }
 
-.layout{
-  display:grid;
-  grid-template-columns: 1fr 360px;
-  gap: 14px;
-  height: calc(100vh - 120px);
-  padding:14px;
-}
-
-.viewer{
-  position:relative;
-  background: #000;
+/* === Panel minimal con “glassmorphism” y bordes sutiles === */
+#ui{
+  position:fixed;
+  left:max(12px, env(safe-area-inset-left));
+  top:calc(12px + env(safe-area-inset-top));
+  z-index:30;
+  background:var(--glass);
+  border:1px solid var(--stroke);
   border-radius:14px;
-  overflow:hidden;
-  box-shadow: 0 25px 60px rgba(0,0,0,.35);
-  min-height: 320px;
-}
-
-.controls{
-  background: var(--panel);
-  border:1px solid #161d27;
-  border-radius:14px;
-  padding:14px;
+  max-width:min(96vw, 560px);
+  max-height:84dvh;
   overflow:auto;
-  box-shadow: 0 16px 40px rgba(0,0,0,.2);
-}
-.controls-header h2{
-  margin:4px 0 10px;
-  font-size:16px;
-  letter-spacing:.3px;
-}
-.group{
-  border:1px solid #1a2230;
-  border-radius:12px;
+  backdrop-filter: blur(8px) saturate(110%);
+  box-shadow: var(--shadow);
   padding:12px;
-  margin-bottom:12px;
-  background:#0f1319;
 }
-.label{
-  display:block;
-  font-weight:600;
-  margin-bottom:8px;
-}
-.radio-row, .toggle-row, .vr-row{
-  display:flex; gap:12px; flex-wrap:wrap; align-items:center;
-}
-.file-row{ display:flex; gap:8px; align-items:center; }
-.file-row input[type="file"]{
-  width:100%;
-  background:#0b0f14; border:1px dashed #1e2a3b; color:var(--muted);
-  border-radius:10px; padding:10px;
-}
-.btn{
-  border:1px solid #203045; background:#132033; color:var(--text);
-  padding:9px 12px; border-radius:10px; cursor:pointer;
-}
-.btn:hover{ box-shadow: var(--ring); }
-.btn.secondary{ border-color:#2c3d55; background:#0f1a2a; }
-.btn.danger{ border-color:#4a1f1f; background:#261316; color:#ffb3b3; }
+#ui .form-text{ color:var(--muted) }
+#ui .text-secondary{ color:var(--muted) !important }
 
-.slider{ margin:10px 0; }
-.slider label{ display:block; color:var(--muted); margin-bottom:6px; }
-.slider input[type="range"]{ width:100%; }
-
-.hint{ color:var(--muted); font-size:12px; }
-
-.status{
-  padding:10px 12px; border-radius:10px;
-  background:#0d131a; border:1px solid #1b2838; color:#b9c4d1;
-  min-height:42px; display:flex; align-items:center;
+/* Títulos y separadores suaves */
+#ui h1{font-size:16px; margin:0 0 6px; letter-spacing:.2px}
+#ui hr{
+  border:0; height:1px; margin:12px 0;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.13), transparent);
 }
 
-.credits h3{ margin:0 0 6px; font-size:14px; color:#cdd8e3; }
-.credits p{ margin:0; color:#9eb0c3; }
+/* === Botones/inputs básicos del panel (IDs existentes) === */
+#ui button{
+  cursor:pointer; border-radius:12px;
+  padding:8px 12px; color:#eaf7fb; background:#0f141c;
+  border:1px solid rgba(255,255,255,.12);
+  transition: transform .08s ease, box-shadow .18s ease, border-color .18s ease, background .18s;
+}
+#ui button:hover{
+  border-color: rgba(69,224,255,.55);
+  box-shadow: 0 0 0 3px rgba(69,224,255,.18);
+}
+#ui button:active{ transform: translateY(1px) }
 
-.app-footer{
-  height:60px; display:flex; align-items:center; justify-content:center;
-  color:var(--muted); border-top:1px solid #151a21;
+/* Botones “modo” primario/secundario (se aplican por clase de Bootstrap si está, pero aquí reforzamos) */
+#btnSBS{ background: linear-gradient(180deg,#0f1722,#0c121b); border-color: rgba(69,224,255,.45) }
+#btnTwo{ background:#0d131b }
+#btnDemoSBS, #btnDemoTwo{
+  color: var(--accent); border-color: rgba(69,224,255,.45);
+  background: linear-gradient(180deg, rgba(12,18,25,.9), rgba(10,16,23,.9));
+}
+#btnDemoSBS:hover, #btnDemoTwo:hover{
+  background: radial-gradient(160px 40px at 50% 100%, rgba(69,224,255,.08), transparent 60%), #0f141c;
 }
 
-/* Responsive: panel debajo en pantallas estrechas */
-@media (max-width: 980px){
-  .layout{ grid-template-columns: 1fr; height:auto; }
-  .viewer{ height: 52vh; }
+/* File input: que combine con el tema */
+#ui input[type="file"]{
+  width:100%; color:var(--fg);
+  background:#0e141d; border:1px solid var(--stroke); border-radius:10px;
+  padding:6px 8px;
+}
+#ui input[type="file"]::-webkit-file-upload-button{
+  color:#0b0f14; background:var(--accent);
+  border:0; border-radius:8px; margin-right:10px; padding:6px 10px; cursor:pointer;
+}
+#ui input[type="file"]::file-selector-button{
+  color:#0b0f14; background:var(--accent);
+  border:0; border-radius:8px; margin-right:10px; padding:6px 10px; cursor:pointer;
+}
+
+/* Ranges (zoom / offsets) */
+#ui input[type="range"]{ -webkit-appearance:none; width:100%; height:28px; background:transparent }
+#ui input[type="range"]::-webkit-slider-runnable-track{
+  height:4px; border-radius:999px;
+  background: linear-gradient(90deg, rgba(69,224,255,.55), rgba(255,106,213,.45));
+}
+#ui input[type="range"]::-moz-range-track{
+  height:4px; border-radius:999px;
+  background: linear-gradient(90deg, rgba(69,224,255,.55), rgba(255,106,213,.45));
+}
+#ui input[type="range"]::-webkit-slider-thumb{
+  -webkit-appearance:none; width:18px; height:18px; border-radius:50%;
+  background:#0b0f14; border:2px solid var(--accent);
+  box-shadow: 0 0 0 4px rgba(69,224,255,.18);
+  margin-top:-7px;
+}
+#ui input[type="range"]::-moz-range-thumb{
+  width:18px; height:18px; border-radius:50%;
+  background:#0b0f14; border:2px solid var(--accent);
+  box-shadow: 0 0 0 4px rgba(69,224,255,.18);
+}
+
+/* Checks (flip/swap/autofit) */
+#ui input[type="checkbox"]{
+  width:16px; height:16px; border-radius:4px; vertical-align:-2px;
+  appearance:none; outline:none; margin-right:6px;
+  background:#0f141c; border:1px solid var(--stroke);
+  position:relative; cursor:pointer;
+}
+#ui input[type="checkbox"]:checked{
+  border-color: var(--accent); box-shadow: 0 0 0 3px rgba(69,224,255,.18) inset;
+}
+#ui input[type="checkbox"]:checked::after{
+  content:""; position:absolute; inset:3px; border-radius:3px; background: var(--accent);
+}
+
+/* Texto auxiliar */
+#ui .form-label{ font-weight:600 }
+#ui .badge{ border:1px solid rgba(255,255,255,.14); background: rgba(255,255,255,.06); }
+
+/* === Botón flotante SIEMPRE visible para mostrar UI (mismo id) === */
+#btnShowUI{
+  position:fixed; z-index:36;
+  right:max(12px, env(safe-area-inset-right));
+  bottom:max(12px, env(safe-area-inset-bottom));
+  width:54px; height:54px; display:flex; align-items:center; justify-content:center;
+  padding:0; border-radius:50%;
+  color:#061018; background: var(--accent);
+  border:1px solid rgba(69,224,255,.6);
+  box-shadow: var(--shadow);
+  transition: transform .08s ease, box-shadow .2s ease;
+}
+#btnShowUI:hover{ box-shadow: 0 0 0 6px rgba(69,224,255,.18), var(--shadow) }
+#btnShowUI:active{ transform: translateY(1px) }
+/* Forzar visibilidad aunque JS establezca hidden */
+#btnShowUI[hidden]{ display:flex !important; }
+
+/* === Visor 2D ============================================================= */
+#viewer{
+  position:absolute; inset:0;
+  display:grid; grid-template-columns:1fr 1fr;
+  align-items:center; justify-items:center;
+  background: radial-gradient(400px 200px at 50% 50%, rgba(255,106,213,.05), transparent 60%);
+}
+.eye{
+  position:relative; width:100%; height:100%;
+  background-repeat:no-repeat; background-position:center; background-size:cover;
+  transform-origin:center; overflow:hidden;
+  outline:1px solid rgba(255,255,255,.03);
+}
+.eye.sbs{ background-size:200% auto }
+.eye.sbs.left{ background-position:left center }
+.eye.sbs.right{ background-position:right center }
+
+/* === Canvas WebXR ========================================================= */
+#xrCanvas{ position:fixed; inset:0; width:100vw; height:100vh; display:none }
+
+/* === HUD DOM Overlay (móvil) ============================================= */
+.xrHud{ position:fixed; inset:0; z-index:1000; pointer-events:none; }
+.xrExit{
+  position:absolute; left:50%; bottom:max(20px, env(safe-area-inset-bottom));
+  transform:translateX(-50%); pointer-events:auto;
+  padding:12px 18px; border-radius:999px;
+  border:1px solid var(--stroke);
+  background: linear-gradient(180deg, rgba(12,18,25,.92), rgba(10,16,23,.92));
+  color:#fff; font-size:15px; font-weight:700;
+  box-shadow: 0 10px 30px rgba(0,0,0,.35);
+}
+
+/* === Responsive =========================================================== */
+@media (max-width:560px){
+  #ui{ width:calc(100vw - 24px) }
 }

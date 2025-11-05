@@ -1,344 +1,372 @@
-import * as THREE from "three";
-import { VRButton } from "three/addons/webxr/VRButton.js";
+// ====== 2D (SBS viewer) ======
+const viewer = document.getElementById('viewer');
+const left = document.getElementById('left');
+const right = document.getElementById('right');
 
-/* ---------- DOM refs ---------- */
-const viewer = document.getElementById("viewer");
-const statusEl = document.getElementById("status");
-const fileInput = document.getElementById("fileInput");
-const btnClear = document.getElementById("btnClear");
+const btnSBS = document.getElementById('btnSBS');
+const btnTwo = document.getElementById('btnTwo');
+const sbsInputs = document.getElementById('sbsInputs');
+const twoInputs = document.getElementById('twoInputs');
 
-const gapEl = document.getElementById("gap");
-const zoomEl = document.getElementById("zoom");
-const yBothEl = document.getElementById("yBoth");
-const yDiffEl = document.getElementById("yDiff");
+const fileSBS = document.getElementById('fileSBS');
+const fileL = document.getElementById('fileL');
+const fileR = document.getElementById('fileR');
 
-const swapEyesEl = document.getElementById("swapEyes");
-const flipVerticalEl = document.getElementById("flipVertical");
-const btnExitVR = document.getElementById("btnExitVR");
-const vrMount = document.getElementById("vrMount");
+const btnDemoSBS = document.getElementById('btnDemoSBS');
+const btnDemoTwo = document.getElementById('btnDemoTwo');
 
-/* ---------- Three.js core ---------- */
-const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: "high-performance" });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-renderer.setSize(viewer.clientWidth, viewer.clientHeight);
+const zoom = document.getElementById('zoom');
+const offX = document.getElementById('offX');
+const offY = document.getElementById('offY');
+const flipH = document.getElementById('flipH');
+const flipV = document.getElementById('flipV');
+const swapEyes = document.getElementById('swapEyes');
+
+const zoomVal = document.getElementById('zoomVal');
+const offXVal = document.getElementById('offXVal');
+const offYVal = document.getElementById('offYVal');
+
+const btnFullscreen = document.getElementById('btnFullscreen');
+const btnHideUI = document.getElementById('btnHideUI');
+const btnShowUI = document.getElementById('btnShowUI');
+const ui = document.getElementById('ui');
+
+// NUEVO: Auto-ajuste
+const autoFitChk = document.getElementById('autoFit');
+const btnAutoFitNow = document.getElementById('btnAutoFitNow');
+
+let mode = 'sbs'; // 'sbs' | 'two'
+let srcSBS = null;
+let srcL = null;
+let srcR = null;
+
+function applySBS(url){
+  srcSBS = url; srcL = srcR = null;
+  left.className = 'eye sbs left';
+  right.className = 'eye sbs right';
+  left.style.backgroundImage = `url("${url}")`;
+  right.style.backgroundImage = `url("${url}")`;
+}
+function applyTwo(urlL, urlR){
+  srcSBS = null; srcL = urlL; srcR = urlR;
+  left.className = 'eye';
+  right.className = 'eye';
+  left.style.backgroundImage = `url("${urlL}")`;
+  right.style.backgroundImage = `url("${urlR}")`;
+}
+
+// Switch de modos
+btnSBS.addEventListener('click', () => {
+  mode = 'sbs';
+  sbsInputs.hidden = false; twoInputs.hidden = true;
+  srcL = srcR = null;
+  if (srcSBS) applySBS(srcSBS);
+  xrRefresh({autoFit:true});
+});
+btnTwo.addEventListener('click', () => {
+  mode = 'two';
+  sbsInputs.hidden = true; twoInputs.hidden = false;
+  srcSBS = null;
+  if (srcL && srcR) applyTwo(srcL, srcR);
+  xrRefresh({autoFit:true});
+});
+
+// Carga de archivos / demos
+fileSBS.addEventListener('change', e => {
+  const f = e.target.files?.[0]; if(!f) return;
+  const url = URL.createObjectURL(f);
+  applySBS(url); xrRefresh({autoFit:true});
+});
+fileL.addEventListener('change', e => {
+  const f = e.target.files?.[0]; if(!f) return;
+  srcL = URL.createObjectURL(f);
+  if (srcL && srcR) applyTwo(srcL, srcR);
+  xrRefresh({autoFit:true});
+});
+fileR.addEventListener('change', e => {
+  const f = e.target.files?.[0]; if(!f) return;
+  srcR = URL.createObjectURL(f);
+  if (srcL && srcR) applyTwo(srcL, srcR);
+  xrRefresh({autoFit:true});
+});
+btnDemoSBS.addEventListener('click', () => { applySBS('css/catarina.jpg'); xrRefresh({autoFit:true}); });
+btnDemoTwo.addEventListener('click', () => { applyTwo('left.jpg','right.jpg'); xrRefresh({autoFit:true}); });
+
+// Ajustes visuales 2D (sin rotación ni IPD)
+function updateUIValues(){
+  zoomVal.textContent = Number(zoom.value).toFixed(2);
+  offXVal.textContent = offX.value;
+  offYVal.textContent = offY.value;
+}
+function buildTransform(){
+  const scale = parseFloat(zoom.value);
+  const flipScaleX = flipH.checked ? -1 : 1;
+  const flipScaleY = flipV.checked ? -1 : 1;
+  const ox = parseInt(offX.value,10);
+  const oy = parseInt(offY.value,10);
+  return `translate(${ox}px, ${oy}px) scale(${flipScaleX * scale}, ${flipScaleY * scale})`;
+}
+function applyTransforms2D(){
+  updateUIValues();
+  // Sin separación simulada: usamos zIndex para swap y transform para zoom/offset/flip
+  if (swapEyes.checked){ left.style.zIndex = 1; right.style.zIndex = 0; }
+  else { left.style.zIndex = 0; right.style.zIndex = 1; }
+  const t = buildTransform();
+  left.style.transform = t;
+  right.style.transform = t;
+}
+[zoom, offX, offY, flipH, flipV, swapEyes].forEach(el =>
+  el.addEventListener('input', () => { applyTransforms2D(); xrRefresh(); })
+);
+
+// Pantalla completa + UI
+btnFullscreen.addEventListener('click', () => {
+  const el = document.documentElement;
+  if (!document.fullscreenElement) el.requestFullscreen?.(); else document.exitFullscreen?.();
+});
+function hideUI(){ ui.style.display='none'; btnShowUI.hidden=false; }
+function showUI(){ ui.style.display=''; btnShowUI.hidden=true; }
+btnHideUI.addEventListener('click', hideUI);
+btnShowUI.addEventListener('click', showUI);
+
+let lastTap = 0;
+viewer.addEventListener('touchend', () => { const now=Date.now(); if(now-lastTap<350) { (ui.style.display==='none')?showUI():hideUI(); } lastTap=now; });
+viewer.addEventListener('dblclick', () => { (ui.style.display==='none')?showUI():hideUI(); });
+
+applyTransforms2D();
+
+
+// ====== VR (WebXR) ======
+import * as THREE from 'three';
+import { VRButton } from 'three/addons/webxr/VRButton.js';
+
+const xrCanvas = document.getElementById('xrCanvas');
+const btnEnterVR = document.getElementById('btnEnterVR');
+const btnExitVR  = document.getElementById('btnExitVR');
+const xrHud = document.getElementById('xrHud');
+const xrExitMobile = document.getElementById('xrExitMobile');
+
+const renderer = new THREE.WebGLRenderer({ canvas: xrCanvas, antialias:true, alpha:false });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.xr.enabled = true;
-renderer.xr.setReferenceSpaceType("local");
-renderer.xr.setFramebufferScaleFactor?.(0.8); // reduce carga en móviles y evita negro
 renderer.outputColorSpace = THREE.SRGBColorSpace;
-renderer.setClearColor(0x000000, 1);
-viewer.appendChild(renderer.domElement);
 
-// VR Button (WebXR)
-const vrBtn = VRButton.createButton(renderer);
-vrMount.appendChild(vrBtn);
-
-// Botón Modo Compatibilidad (SBS sin WebXR)
-const btnCompat = document.createElement("button");
-btnCompat.className = "btn";
-btnCompat.textContent = "Modo VR Compatibilidad";
-vrMount.appendChild(btnCompat);
-
-// Scene & Camera
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x000000);
-
-const camera = new THREE.PerspectiveCamera(60, viewer.clientWidth / viewer.clientHeight, 0.01, 100);
-camera.position.set(0, 0, 1.5);
+const camera = new THREE.PerspectiveCamera(74, window.innerWidth/window.innerHeight, 0.01, 100);
+camera.position.set(0,1.55,0);
 scene.add(camera);
 
-// Luz sutil
-const light = new THREE.AmbientLight(0xffffff, 0.7);
-scene.add(light);
+scene.add(new THREE.HemisphereLight(0xffffff, 0x222233, 0.2));
 
-/* ---------- Planos izquierdo y derecho ---------- */
-const groupLeft = new THREE.Group();
-const groupRight = new THREE.Group();
-scene.add(groupLeft);
-scene.add(groupRight);
+// Planos (1x1, escalados por aspect del ojo)
+const planeGeom = new THREE.PlaneGeometry(1, 1);
+const matL = new THREE.MeshBasicMaterial({ color: 0xffffff, toneMapped:false, depthTest:false });
+const matR = new THREE.MeshBasicMaterial({ color: 0xffffff, toneMapped:false, depthTest:false });
+const meshL = new THREE.Mesh(planeGeom, matL);
+const meshR = new THREE.Mesh(planeGeom, matR);
 
-const geometry = new THREE.PlaneGeometry(1, 1); // base 1x1 (escala via "zoom")
-let matLeft = new THREE.MeshBasicMaterial({ color: 0x222222 });
-let matRight = new THREE.MeshBasicMaterial({ color: 0x222222 });
+// Distancia cómoda y leve separación interna fija (sin control de IPD en UI)
+const baseDistance = 0.9;                // más cerca para llenar mejor
+const fixedSep    = 0.06;                // separación fija en metros aprox.
 
-const meshLeft = new THREE.Mesh(geometry, matLeft);
-const meshRight = new THREE.Mesh(geometry, matRight);
-groupLeft.add(meshLeft);
-groupRight.add(meshRight);
+meshL.position.set(-fixedSep/2, 1.55, -baseDistance);
+meshR.position.set( fixedSep/2, 1.55, -baseDistance);
+meshL.layers.set(1); meshR.layers.set(2);
+meshL.visible = meshR.visible = false;
+scene.add(meshL, meshR);
 
-// Capas por ojo en WebXR
-meshLeft.layers.set(1);   // Ojo izquierdo
-meshRight.layers.set(2);  // Ojo derecho
+// Estado aspect del ojo
+let eyeAspect = 1;
 
-// En pantalla normal (no XR), la cámara ve ambas capas
-camera.layers.enable(1);
-camera.layers.enable(2);
+// Loader/texturas con SAFE (SBS)
+const loader = new THREE.TextureLoader();
+const maxAniso = renderer.capabilities.getMaxAnisotropy ? renderer.capabilities.getMaxAnisotropy() : 8;
+const SAFE = 0.0020;
 
-/* ---------- Estado de imagen ---------- */
-let currentMode = "mono"; // "mono" o "sbs"
-let baseTexture = null;
-let texLeft = null;
-let texRight = null;
-
-/* ---------- Modo Compatibilidad (sin WebXR) ---------- */
-let compatActive = false;
-let prevViewerStyle = null;
-
-function enterCompatVR(){
-  if (compatActive) return;
-  compatActive = true;
-
-  // Guardar estilo previo y forzar fullscreen del viewer
-  prevViewerStyle = {
-    position: viewer.style.position,
-    left: viewer.style.left,
-    top: viewer.style.top,
-    width: viewer.style.width,
-    height: viewer.style.height,
-    zIndex: viewer.style.zIndex,
-    background: viewer.style.background
-  };
-  viewer.style.position = "fixed";
-  viewer.style.left = "0";
-  viewer.style.top = "0";
-  viewer.style.width = "100vw";
-  viewer.style.height = "100vh";
-  viewer.style.zIndex = "9999";
-  viewer.style.background = "#000";
-
-  // Intentar pantalla completa (no es obligatorio para funcionar)
-  const el = viewer;
-  const reqFS = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
-  try { reqFS && reqFS.call(el); } catch(e){ /* ignore */ }
-
-  btnExitVR.hidden = false;
-  setStatus("Modo VR Compatibilidad activo (sin WebXR).");
+function baseTex(t){
+  t.wrapS = THREE.ClampToEdgeWrapping;
+  t.wrapT = THREE.ClampToEdgeWrapping;
+  t.minFilter = THREE.LinearFilter;
+  t.magFilter = THREE.LinearFilter;
+  t.generateMipmaps = false;
+  t.anisotropy = maxAniso;
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.center.set(0.5,0.5);
+  return t;
+}
+function loadSingle(url, {flipH=false, flipV=false}){
+  const tex = baseTex(loader.load(url, (tt) => {
+    const w = tt.image?.naturalWidth || tt.image?.width || 1;
+    const h = tt.image?.naturalHeight || tt.image?.height || 1;
+    eyeAspect = w / h;
+    if (autoFitChk.checked) autoFitZoom();
+    applyTransformsXR(); showMeshesIfReady();
+  }));
+  const sx = (flipH ? -1 : 1);
+  const sy = (flipV ? -1 : 1);
+  tex.repeat.set(sx, sy);
+  tex.offset.set(0,0);
+  tex.needsUpdate = true;
+  return tex;
+}
+function loadSBSHalf(url, which, {flipH=false, flipV=false}){
+  const tex = baseTex(loader.load(url, (tt) => {
+    const w = tt.image?.naturalWidth || tt.image?.width || 1;
+    const h = tt.image?.naturalHeight || tt.image?.height || 1;
+    eyeAspect = (w*0.5)/h;
+    if (autoFitChk.checked) autoFitZoom();
+    applyTransformsXR(); showMeshesIfReady();
+  }));
+  const half = 0.5 - SAFE*2;
+  let ox = (which === 'L') ? (0.0 + SAFE) : (0.5 + SAFE);
+  let sx = half;
+  if (flipH){ sx = -half; ox = ox + half; }
+  const sy = (flipV ? -1 : 1);
+  tex.repeat.set(sx, sy);
+  tex.offset.set(ox, 0);
+  tex.needsUpdate = true;
+  return tex;
 }
 
-function exitCompatVR(){
-  if (!compatActive) return;
-  compatActive = false;
+// Construye materiales según modo/estado
+function updateXRMaterials(){
+  if (matL.map){ matL.map.dispose?.(); matL.map = null; }
+  if (matR.map){ matR.map.dispose?.(); matR.map = null; }
+  meshL.visible = meshR.visible = false;
 
-  // Restaurar estilo previo
-  if (prevViewerStyle){
-    viewer.style.position = prevViewerStyle.position ?? "";
-    viewer.style.left = prevViewerStyle.left ?? "";
-    viewer.style.top = prevViewerStyle.top ?? "";
-    viewer.style.width = prevViewerStyle.width ?? "";
-    viewer.style.height = prevViewerStyle.height ?? "";
-    viewer.style.zIndex = prevViewerStyle.zIndex ?? "";
-    viewer.style.background = prevViewerStyle.background ?? "";
+  const common = {
+    flipH:  flipH.checked,
+    flipV:  flipV.checked
+  };
+
+  if (mode === 'sbs' && srcSBS){
+    const tL = loadSBSHalf(srcSBS, 'L', common);
+    const tR = loadSBSHalf(srcSBS, 'R', common);
+    matL.map = swapEyes.checked ? tR : tL;
+    matR.map = swapEyes.checked ? tL : tR;
+  } else if (mode === 'two' && srcL && srcR){
+    const tL = loadSingle(srcL, common);
+    const tR = loadSingle(srcR, common);
+    matL.map = swapEyes.checked ? tR : tL;
+    matR.map = swapEyes.checked ? tL : tR;
   }
-  prevViewerStyle = null;
-
-  // Salir de pantalla completa si lo estamos
-  const d = document;
-  const exitFS = d.exitFullscreen || d.webkitExitFullscreen || d.msExitFullscreen;
-  try { exitFS && exitFS.call(d); } catch(e){ /* ignore */ }
-
-  btnExitVR.hidden = true;
-  setStatus("Saliste del Modo VR Compatibilidad.");
+  matL.needsUpdate = matR.needsUpdate = true;
 }
 
-/* ---------- Helpers UI ---------- */
-const $ = (sel) => document.querySelector(sel);
-const modeRadios = document.querySelectorAll('input[name="mode"]');
-modeRadios.forEach(r => r.addEventListener("change", e => {
-  currentMode = e.target.value;
-  if (baseTexture) applyTexturesForMode();
-}));
+// Muestra planos si hay textura en ambos
+function showMeshesIfReady(){
+  const ready = !!(matL.map && matR.map);
+  meshL.visible = ready;
+  meshR.visible = ready;
+}
 
-btnClear.addEventListener("click", () => {
-  fileInput.value = "";
-  setStatus("Sin imagen cargada.");
-  baseTexture = null;
-  setMaterials(new THREE.MeshBasicMaterial({ color: 0x222222 }), new THREE.MeshBasicMaterial({ color: 0x222222 }));
-});
+// ====== Auto-ajustar (alto) ======
+// Calcula zoom para que la ALTURA del plano llene ~88% del alto visible a baseDistance
+function autoFitZoom(){
+  const fovRad = THREE.MathUtils.degToRad(camera.fov);
+  const visibleHeight = 2 * baseDistance * Math.tan(fovRad / 2);
+  const target = visibleHeight * 0.88; // margen más conservador para evitar “cortes”
+  zoom.value = target.toFixed(2);
+  updateUIValues();
+}
 
-swapEyesEl.addEventListener("change", () => { if (baseTexture) applyTexturesForMode(); });
-flipVerticalEl.addEventListener("change", () => { if (baseTexture) applyTexturesForMode(); });
+btnAutoFitNow.addEventListener('click', () => { autoFitZoom(); applyTransformsXR(); });
 
-gapEl.addEventListener("input", applyTransforms);
-zoomEl.addEventListener("input", applyTransforms);
-yBothEl.addEventListener("input", applyTransforms);
-yDiffEl.addEventListener("input", applyTransforms);
+// Escala en VR (sin control de IPD)
+function applyTransformsXR(){
+  const s = parseFloat(zoom.value);
+  meshL.scale.set(eyeAspect * s, 1 * s, 1);
+  meshR.scale.set(eyeAspect * s, 1 * s, 1);
+}
 
-btnCompat.addEventListener("click", () => {
-  enterCompatVR();
-});
-
-/* ---------- Carga de imagen ---------- */
-fileInput.addEventListener("change", async (e) => {
-  const file = e.target.files?.[0];
-  if (!file) return;
-
-  const url = URL.createObjectURL(file);
-  const image = new Image();
-  image.onload = () => {
-    const tex = new THREE.Texture(image);
-    tex.colorSpace = THREE.SRGBColorSpace;
-    tex.anisotropy = renderer.capabilities.getMaxAnisotropy?.() || 1;
-    tex.needsUpdate = true;
-
-    baseTexture = tex;
-    applyTexturesForMode();
-    URL.revokeObjectURL(url);
-    setStatus(`Imagen cargada: ${file.name} (${image.width}×${image.height}) — Modo: ${currentMode.toUpperCase()}`);
-  };
-  image.onerror = () => {
-    setStatus("No se pudo cargar la imagen. Intenta con otro archivo.");
-  };
-  image.src = url;
-});
-
-/* ---------- Aplicar texturas según modo ---------- */
-function applyTexturesForMode(){
-  if (!baseTexture) return;
-
-  const flipY = !!flipVerticalEl.checked;
-
-  if (currentMode === "mono"){
-    texLeft = baseTexture.clone();
-    texRight = baseTexture.clone();
-    texLeft.needsUpdate = texRight.needsUpdate = true;
-    texLeft.flipY = texRight.flipY = flipY;
-
-    texLeft.offset.set(0, 0);
-    texRight.offset.set(0, 0);
-    texLeft.repeat.set(1, 1);
-    texRight.repeat.set(1, 1);
-  } else {
-    const swapped = !!swapEyesEl.checked;
-
-    const tL = baseTexture.clone();
-    const tR = baseTexture.clone();
-    tL.needsUpdate = tR.needsUpdate = true;
-
-    if (!swapped){
-      tL.offset.set(0.0, 0.0); tL.repeat.set(0.5, 1.0);
-      tR.offset.set(0.5, 0.0); tR.repeat.set(0.5, 1.0);
-    } else {
-      tL.offset.set(0.5, 0.0); tL.repeat.set(0.5, 1.0);
-      tR.offset.set(0.0, 0.0); tR.repeat.set(0.5, 1.0);
-    }
-    tL.flipY = tR.flipY = flipY;
-
-    texLeft = tL;
-    texRight = tR;
+// Si ya estamos en VR, refresca de inmediato
+function xrRefresh({autoFit=false} = {}){
+  applyTransforms2D();
+  if (renderer.xr.isPresenting){
+    if (autoFit && autoFitChk.checked) autoFitZoom();
+    updateXRMaterials();
+    applyTransformsXR();
   }
-
-  const mL = new THREE.MeshBasicMaterial({ map: texLeft });
-  const mR = new THREE.MeshBasicMaterial({ map: texRight });
-  setMaterials(mL, mR);
-
-  applyTransforms();
 }
 
-/* ---------- Posiciones / escala ---------- */
-function applyTransforms(){
-  const userGap = parseFloat(gapEl.value);
-  const zoom = parseFloat(zoomEl.value);
-  const yBoth = parseFloat(yBothEl.value);
-  const yDiff = parseFloat(yDiffEl.value);
-
-  // Evitar cruce con zoom alto
-  const minGap = zoom * 1.02;
-  const gap = Math.max(userGap, minGap);
-
-  groupLeft.position.set(-gap * 0.5, yBoth + (+yDiff), 0);
-  groupRight.position.set(+gap * 0.5, yBoth + (-yDiff), 0);
-
-  meshLeft.scale.set(zoom, zoom, 1);
-  meshRight.scale.set(zoom, zoom, 1);
-}
-
-/* ---------- Material setter ---------- */
-function setMaterials(mLeft, mRight){
-  matLeft.dispose(); matRight.dispose();
-  matLeft = mLeft;   matRight = mRight;
-  meshLeft.material = matLeft;
-  meshRight.material = matRight;
-}
-
-/* ---------- Estado ---------- */
-function setStatus(msg){
-  statusEl.textContent = msg;
-}
-
-/* ---------- Resize ---------- */
+// Resize
 function onResize(){
-  const w = viewer.clientWidth;
-  const h = viewer.clientHeight;
-  renderer.setSize(w, h, false);
-  camera.aspect = w / h;
+  renderer.setSize(window.innerWidth, window.innerHeight, false);
+  camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
+  if (renderer.xr.isPresenting && autoFitChk.checked) { autoFitZoom(); applyTransformsXR(); }
 }
-window.addEventListener("resize", onResize);
+window.addEventListener('resize', onResize);
 
-/* ---------- WebXR: detección de render en VR ---------- */
-let xrFrameRendered = false;
-let xrCheckTimer = null;
-
-// Marcar cuando haya al menos un frame XR dibujado
-renderer.setAnimationLoop(() => {
-  renderer.render(scene, camera);
-  if (renderer.xr.isPresenting) {
-    xrFrameRendered = true;
-  }
-});
-
-/* ---------- VR session hooks ---------- */
-renderer.xr.addEventListener("sessionstart", () => {
-  btnExitVR.hidden = false;
-
-  // Configurar capas por ojo con fallback (algunos móviles reportan 1 cámara XR)
-  const xrCam = renderer.xr.getCamera();
-  if (xrCam.isArrayCamera && xrCam.cameras?.length === 2){
-    const leftCam  = xrCam.cameras[0];
-    const rightCam = xrCam.cameras[1];
-    leftCam.layers.enable(1);  leftCam.layers.disable(2);
-    rightCam.layers.enable(2); rightCam.layers.disable(1);
-  } else {
-    // Fallback: muestra ambas capas si hay una sola cámara XR (SBS visible)
-    xrCam.layers.enable(1);
-    xrCam.layers.enable(2);
-  }
-
-  // Reiniciar marcador y programar verificación
-  xrFrameRendered = false;
-  if (xrCheckTimer) clearTimeout(xrCheckTimer);
-  xrCheckTimer = setTimeout(async () => {
-    // Si tras ~1.2s no se dibujó ningún frame XR, salimos y activamos compat
-    if (!xrFrameRendered) {
-      const session = renderer.xr.getSession();
-      try { session && await session.end(); } catch(e){ /* ignore */ }
-      setStatus("El modo WebXR no dibujó ningún cuadro. Activando Modo VR Compatibilidad.");
-      enterCompatVR();
-    }
-  }, 1200);
-
-  // Asegura tamaño correcto al entrar a XR
-  onResize();
-});
-
-renderer.xr.addEventListener("sessionend", () => {
+// Sesión XR helpers
+function onXREnd() {
+  showUI();
+  xrCanvas.style.display = 'none';
   btnExitVR.hidden = true;
-  camera.layers.enable(1);
-  camera.layers.enable(2);
-  if (xrCheckTimer) { clearTimeout(xrCheckTimer); xrCheckTimer = null; }
-  // Si estábamos en Compat, no tocar (se controla con exitCompatVR)
-});
+}
+async function exitVR() {
+  try {
+    const session = renderer.xr.getSession?.();
+    if (session) await session.end();
+  } catch(e){ console.warn(e); }
+  finally { onXREnd(); }
+}
 
-btnExitVR.addEventListener("click", async () => {
-  // Salir de XR si está activo
-  const session = renderer.xr.getSession();
-  if (session) {
-    try { await session.end(); } catch(e){ /* ignore */ }
+// Entrar a VR
+btnEnterVR.addEventListener('click', async () => {
+  try{
+    // Si no hay imágenes aún, avisa
+    if ((mode==='sbs' && !srcSBS) || (mode==='two' && (!srcL || !srcR))){
+      alert('Carga primero una imagen SBS o ambas L/R.');
+      return;
+    }
+
+    updateXRMaterials();
+    if (autoFitChk.checked) autoFitZoom();
+    applyTransformsXR();
+
+    xrCanvas.style.display = 'block';
+
+    const vrBtn = VRButton.createButton(renderer);
+    vrBtn.style.display = 'none';
+    document.body.appendChild(vrBtn);
+
+    const session = await navigator.xr.requestSession('immersive-vr', {
+      optionalFeatures: ['local-floor', 'layers', 'dom-overlay'],
+      domOverlay: { root: document.body }
+    });
+    await renderer.xr.setSession(session);
+
+    const xrCam = renderer.xr.getCamera(camera);
+    if (xrCam && xrCam.isArrayCamera && xrCam.cameras?.length === 2){
+      xrCam.cameras[0].layers.enable(1); // left-eye layer
+      xrCam.cameras[1].layers.enable(2); // right-eye layer
+    }
+
+    ui.style.display='none'; btnShowUI.hidden=false;
+    btnExitVR.hidden = false;
+    if (xrHud) xrHud.hidden = false;
+
+    session.addEventListener('end', onXREnd);
+
+    showMeshesIfReady();
+
+  }catch(err){
+    alert('WebXR no disponible (usa HTTPS + Chrome Android).');
+    console.error(err);
+    onXREnd();
   }
-  // Salir de compat si está activo
-  if (compatActive) exitCompatVR();
 });
 
-/* ---------- Inicial ---------- */
-applyTransforms();
-setStatus("Sin imagen cargada. Elige 'Imagen única' o 'SBS' y sube tu archivo.");
-onResize();
+// Salir de VR
+btnExitVR.addEventListener('click', exitVR);
+if (xrExitMobile) xrExitMobile.addEventListener('click', exitVR);
+window.addEventListener('keydown', (e) => { if (e.key.toLowerCase() === 'x') exitVR(); });
+
+// Loop
+renderer.setAnimationLoop(() => { renderer.render(scene, camera); });
+
+// Año dinámico
+const y = document.getElementById('yearNow');
+if (y) y.textContent = new Date().getFullYear();
