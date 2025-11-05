@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <title>Visor Estereoscópico SBS + WebXR (Cardboard)</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <link rel="stylesheet" href="css/styles.css" />
+
+  <!-- Three.js (ESM) + Addons via importmap -->
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.161/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.161/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+<body>
+
+  <header class="app-header">
+    <h1>Visor Estereoscópico SBS + WebXR</h1>
+    <p class="subtitle">Objetivo: Visualizar imágenes estereoscópicas cargadas desde tu computadora. Duplicar imagen normal a SBS o separar una imagen SBS en ojos izquierdo y derecho, con ajuste fino y soporte VR.</p>
+  </header>
+
+  <main class="layout">
+    <!-- Lienzo 3D -->
+    <div id="viewer" class="viewer"></div>
+
+    <!-- Panel de Control -->
+    <aside class="controls" id="controls">
+      <div class="controls-header">
+        <h2>Controles</h2>
+      </div>
+
+      <div class="group">
+        <label class="label">Fuente de imagen</label>
+        <div class="radio-row">
+          <label><input type="radio" name="mode" value="mono" checked> Imagen única (duplicar a SBS)</label>
+          <label><input type="radio" name="mode" value="sbs"> Imagen ya en SBS (mitad izquierda/derecha)</label>
+        </div>
+        <div class="file-row">
+          <input type="file" id="fileInput" accept="image/*" />
+          <button id="btnClear" class="btn secondary">Limpiar</button>
+        </div>
+        <small class="hint">Sugerencia: usa imágenes grandes. Para SBS, la imagen debe contener dos mitades (izquierda/derecha) en el mismo archivo.</small>
+      </div>
+
+      <div class="group">
+        <label class="label">Ajustes geométricos</label>
+        <div class="slider">
+          <label for="zoom">Zoom / Tamaño del plano</label>
+          <input type="range" id="zoom" min="0.2" max="3" step="0.01" value="1" />
+        </div>
+        <div class="slider">
+          <label for="gap">Separación horizontal (entre imágenes)</label>
+          <input type="range" id="gap" min="0" max="1.2" step="0.01" value="0.25" />
+        </div>
+        <div class="slider">
+          <label for="yBoth">Desplazamiento vertical (ambos ojos)</label>
+          <input type="range" id="yBoth" min="-0.6" max="0.6" step="0.005" value="0" />
+        </div>
+        <div class="slider">
+          <label for="yDiff">Alineación vertical diferencial (izq↑ / der↓)</label>
+          <input type="range" id="yDiff" min="-0.4" max="0.4" step="0.005" value="0" />
+        </div>
+      </div>
+
+      <div class="group">
+        <label class="label">Correcciones de imagen</label>
+        <div class="toggle-row">
+          <label><input type="checkbox" id="swapEyes"> Intercambiar ojos (swap L/R)</label>
+          <label><input type="checkbox" id="flipVertical"> Voltear vertical (imagen de cabeza)</label>
+        </div>
+      </div>
+
+      <div class="group">
+        <label class="label">Realidad Virtual</label>
+        <div class="vr-row">
+          <!-- VRButton se inyecta aquí automáticamente por three -->
+          <span id="vrMount"></span>
+          <button id="btnExitVR" class="btn danger" hidden>Salir de VR</button>
+        </div>
+        <small class="hint">En móviles, gira el teléfono a horizontal. Usa un visor tipo Cardboard. El botón “Entrar en VR” aparecerá si tu navegador soporta WebXR.</small>
+      </div>
+
+      <div class="group">
+        <label class="label">Estado</label>
+        <div id="status" class="status">Sin imagen cargada.</div>
+      </div>
+
+      <div class="credits">
+        <h3>Créditos</h3>
+        <p>© 2025 — Proyecto académico de visualización estereoscópica. Desarrollado por <strong>Tu Nombre</strong>.</p>
+      </div>
+    </aside>
+  </main>
+
+  <footer class="app-footer">
+    <p>Hecho con <a href="https://threejs.org/" target="_blank" rel="noopener">Three.js</a> y <span class="mono">WebXR</span>. Modo oscuro, UI minimalista.</p>
+  </footer>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
