@@ -22,6 +22,10 @@ const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.setSize(viewer.clientWidth, viewer.clientHeight);
 renderer.xr.enabled = true;
+/* Ajustes que ayudan en móviles al entrar a XR */
+renderer.xr.setReferenceSpaceType('local');
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.setClearColor(0x000000, 1);
 viewer.appendChild(renderer.domElement);
 
 // VR Button
@@ -104,6 +108,7 @@ fileInput.addEventListener("change", async (e) => {
     // Crear textura base
     const tex = new THREE.Texture(image);
     tex.colorSpace = THREE.SRGBColorSpace;
+    tex.anisotropy = renderer.capabilities.getMaxAnisotropy?.() || 1; // mejora nitidez
     tex.needsUpdate = true;
 
     baseTexture = tex;
@@ -176,10 +181,15 @@ function applyTexturesForMode(){
 
 /* ---------- Posiciones / escala ---------- */
 function applyTransforms(){
-  const gap = parseFloat(gapEl.value);      // distancia horizontal entre centros
-  const zoom = parseFloat(zoomEl.value);    // escala uniforme
-  const yBoth = parseFloat(yBothEl.value);  // desplaza ambos ojos en Y
-  const yDiff = parseFloat(yDiffEl.value);  // diferencial (izq↑ / der↓)
+  const userGap = parseFloat(gapEl.value);   // distancia horizontal elegida por el usuario
+  const zoom = parseFloat(zoomEl.value);     // escala uniforme (ancho del plano = zoom)
+  const yBoth = parseFloat(yBothEl.value);   // desplaza ambos ojos en Y
+  const yDiff = parseFloat(yDiffEl.value);   // diferencial (izq↑ / der↓)
+
+  // Para que no se crucen al hacer zoom: gap >= ancho del plano.
+  // Le damos un 2% extra por seguridad.
+  const minGap = zoom * 1.02;
+  const gap = Math.max(userGap, minGap);
 
   groupLeft.position.set(-gap * 0.5, yBoth + (+yDiff), 0);
   groupRight.position.set(+gap * 0.5, yBoth + (-yDiff), 0);
@@ -214,16 +224,22 @@ window.addEventListener("resize", onResize);
 /* ---------- VR session hooks ---------- */
 renderer.xr.addEventListener("sessionstart", () => {
   btnExitVR.hidden = false;
-  // Configurar capas por ojo
+
+  // Configurar capas por ojo con fallback (algunos móviles reportan 1 cámara XR)
   const xrCam = renderer.xr.getCamera();
   if (xrCam.isArrayCamera && xrCam.cameras?.length === 2){
-    // Izquierdo ve capa 1
-    xrCam.cameras[0].layers.enable(1);
-    xrCam.cameras[0].layers.disable(2);
-    // Derecho ve capa 2
-    xrCam.cameras[1].layers.enable(2);
-    xrCam.cameras[1].layers.disable(1);
+    const leftCam  = xrCam.cameras[0];
+    const rightCam = xrCam.cameras[1];
+    leftCam.layers.enable(1);  leftCam.layers.disable(2);
+    rightCam.layers.enable(2); rightCam.layers.disable(1);
+  } else {
+    // Fallback: muestra ambas capas si hay una sola cámara XR (se verá SBS)
+    xrCam.layers.enable(1);
+    xrCam.layers.enable(2);
   }
+
+  // Asegura tamaño correcto al entrar a XR
+  onResize();
 });
 
 renderer.xr.addEventListener("sessionend", () => {
