@@ -137,6 +137,7 @@ applyTransforms2D();
 
 
 // ====== VR (WebXR) ======
+// ====== VR (WebXR) ======
 import * as THREE from 'three';
 import { VRButton } from 'three/addons/webxr/VRButton.js';
 
@@ -157,29 +158,34 @@ const camera = new THREE.PerspectiveCamera(74, window.innerWidth/window.innerHei
 camera.position.set(0,1.55,0);
 scene.add(camera);
 
+// luz suave (igual que tu bloque actual)
 scene.add(new THREE.HemisphereLight(0xffffff, 0x222233, 0.2));
 
-// Planos (1x1, escalados por aspect del ojo)
+// Planos por ojo
 const planeGeom = new THREE.PlaneGeometry(1, 1);
 const matL = new THREE.MeshBasicMaterial({ color: 0xffffff, toneMapped:false, depthTest:false });
 const matR = new THREE.MeshBasicMaterial({ color: 0xffffff, toneMapped:false, depthTest:false });
 const meshL = new THREE.Mesh(planeGeom, matL);
 const meshR = new THREE.Mesh(planeGeom, matR);
 
-// Distancia cómoda y leve separación interna fija (sin control de IPD en UI)
-const baseDistance = 0.9;                // más cerca para llenar mejor
-const fixedSep    = 0.06;                // separación fija en metros aprox.
+// Distancia/Separación (adapta del código 1 para llenar mejor)
+const baseDistance = 0.95;   // un poco más cerca que 0.9
+const fixedSep    = 0.06;    // separación fija aprox. por ojo
 
 meshL.position.set(-fixedSep/2, 1.55, -baseDistance);
 meshR.position.set( fixedSep/2, 1.55, -baseDistance);
 meshL.layers.set(1); meshR.layers.set(2);
-meshL.visible = meshR.visible = false;
+
+// Mantener visibles para evitar pantalla negra al entrar
+meshL.visible = true;
+meshR.visible = true;
+
 scene.add(meshL, meshR);
 
 // Estado aspect del ojo
 let eyeAspect = 1;
 
-// Loader/texturas con SAFE (SBS)
+// Loader/texturas con SAFE (SBS) — igual a tu enfoque actual
 const loader = new THREE.TextureLoader();
 const maxAniso = renderer.capabilities.getMaxAnisotropy ? renderer.capabilities.getMaxAnisotropy() : 8;
 const SAFE = 0.0020;
@@ -229,11 +235,11 @@ function loadSBSHalf(url, which, {flipH=false, flipV=false}){
   return tex;
 }
 
-// Construye materiales según modo/estado
+// Construye materiales según modo/estado (con swap y flips)
 function updateXRMaterials(){
   if (matL.map){ matL.map.dispose?.(); matL.map = null; }
   if (matR.map){ matR.map.dispose?.(); matR.map = null; }
-  meshL.visible = meshR.visible = false;
+  // Dejamos los planos visibles; se cubrirán con la textura en cuanto cargue
 
   const common = {
     flipH:  flipH.checked,
@@ -254,7 +260,6 @@ function updateXRMaterials(){
   matL.needsUpdate = matR.needsUpdate = true;
 }
 
-// Muestra planos si hay textura en ambos
 function showMeshesIfReady(){
   const ready = !!(matL.map && matR.map);
   meshL.visible = ready;
@@ -262,18 +267,17 @@ function showMeshesIfReady(){
 }
 
 // ====== Auto-ajustar (alto) ======
-// Calcula zoom para que la ALTURA del plano llene ~88% del alto visible a baseDistance
+// Llenar ~92% del alto visible a la distancia base (ajuste del código 1)
 function autoFitZoom(){
   const fovRad = THREE.MathUtils.degToRad(camera.fov);
   const visibleHeight = 2 * baseDistance * Math.tan(fovRad / 2);
-  const target = visibleHeight * 0.88; // margen más conservador para evitar “cortes”
+  const target = visibleHeight * 0.92;
   zoom.value = target.toFixed(2);
   updateUIValues();
 }
+btnAutoFitNow?.addEventListener('click', () => { autoFitZoom(); applyTransformsXR(); });
 
-btnAutoFitNow.addEventListener('click', () => { autoFitZoom(); applyTransformsXR(); });
-
-// Escala en VR (sin control de IPD)
+// Escala en VR (sin IPD dinámico en UI, mantenemos fixedSep)
 function applyTransformsXR(){
   const s = parseFloat(zoom.value);
   meshL.scale.set(eyeAspect * s, 1 * s, 1);
@@ -299,11 +303,13 @@ function onResize(){
 }
 window.addEventListener('resize', onResize);
 
-// Sesión XR helpers
+// Sesión XR helpers (como en código 1)
 function onXREnd() {
   showUI();
   xrCanvas.style.display = 'none';
   btnExitVR.hidden = true;
+  btnEnterVR.disabled = false;
+  if (xrHud) xrHud.hidden = true;
 }
 async function exitVR() {
   try {
@@ -313,10 +319,10 @@ async function exitVR() {
   finally { onXREnd(); }
 }
 
-// Entrar a VR
+// Entrar a VR (con refrescos extra como en código 1)
 btnEnterVR.addEventListener('click', async () => {
   try{
-    // Si no hay imágenes aún, avisa
+    // Verifica que haya al menos una fuente cargada
     if ((mode==='sbs' && !srcSBS) || (mode==='two' && (!srcL || !srcR))){
       alert('Carga primero una imagen SBS o ambas L/R.');
       return;
@@ -338,18 +344,22 @@ btnEnterVR.addEventListener('click', async () => {
     });
     await renderer.xr.setSession(session);
 
+    // Enlazar capas por ojo
     const xrCam = renderer.xr.getCamera(camera);
     if (xrCam && xrCam.isArrayCamera && xrCam.cameras?.length === 2){
-      xrCam.cameras[0].layers.enable(1); // left-eye layer
-      xrCam.cameras[1].layers.enable(2); // right-eye layer
+      xrCam.cameras[0].layers.enable(1); // left-eye
+      xrCam.cameras[1].layers.enable(2); // right-eye
     }
+
+    // Refrescos extra por si la textura termina de cargar justo al entrar
+    updateXRMaterials(); applyTransformsXR();
+    setTimeout(()=>{ updateXRMaterials(); applyTransformsXR(); }, 180);
 
     ui.style.display='none'; btnShowUI.hidden=false;
     btnExitVR.hidden = false;
     if (xrHud) xrHud.hidden = false;
 
     session.addEventListener('end', onXREnd);
-
     showMeshesIfReady();
 
   }catch(err){
